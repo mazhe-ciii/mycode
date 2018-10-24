@@ -1,0 +1,3 @@
+2018-09-07 16:21:09,533 MainProcess pid:8980  [INFO]: xfer_main
+2018-09-07 16:21:09,534 MainProcess pid:8980  [INFO]: {'trans_type': 'PUT', 'remote_ip': '10.7.6.28', 'user': 'fsrun', 'passwd': 'diaBso3_wV', 'port': '30021', 'remote_path': '/data/ori_xdr_backup/ggprs', 'local_path': '/data01/bak/split/ggprs/bakfiles', 'match_exp': '.*', 'process_num': '10'}
+2018-09-07 16:21:09,534 MainProcess pid:8980  [ERROR]: Login error,relogin in 10s later,reason:'>' not supported between instances of 'str' and 'int'
