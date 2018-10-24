@@ -13,10 +13,11 @@ select * from crm_d  a where not exists(select 1 from zg.cm_taxpayer_info where 
 
 
 针对B单边情况：
-在crm执行，删除在crm中的已有数据
-delete from aidemp.NSR_info_yyyymmdd_end a where exists(select 1 from party.cm_taxpayer_info where a.tax_id=tax_id and type='B');
-将剩余结果拿回boss库中执行,生成结果 boss_d
-select * from zg.cm_taxpayer_info where exists(select 1 from aidemp.NSR_info_yyyymmdd where   type='B');
+#在crm执行，删除在crm中的已有数据
+#delete from aidemp.NSR_info_yyyymmdd_end a where exists(select 1 from party.cm_taxpayer_info where a.tax_id=tax_id and type='B');
+在crm执行，删除在crm中的已有数据,将剩余结果拿回boss库中执行,生成结果 boss_d
+select * from NSR_info_${day_id}_end a where not exists
+(select 1 from party.cm_taxpayer_info where a.tax_id=tax_id) and a.type = 'B';
 删除boss表对应的单边数据，执行下面SQL
 delete from zg.cm_taxpayer_info a where exists( select 1 from aidemp.boss_d where a.tax_id=tax_id );
 
