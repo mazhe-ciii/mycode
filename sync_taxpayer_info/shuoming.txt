@@ -1,36 +1,36 @@
-ÄÉË°ÈË×ÊÖÊĞŞ¸´info±íĞèÇóËµÃ÷£º
-1¡¢Éú²ú±í zg.cm_taxpayer_info ĞèÒª±¸·İ
-2¡¢ÈÕÖ¾ÖĞÏÔÊ¾¸÷ÖÖÀàĞÍÊı¾İÊıÁ¿
+çº³ç¨äººèµ„è´¨ä¿®å¤infoè¡¨éœ€æ±‚è¯´æ˜ï¼š
+1ã€ç”Ÿäº§è¡¨ zg.cm_taxpayer_info éœ€è¦å¤‡ä»½
+2ã€æ—¥å¿—ä¸­æ˜¾ç¤ºå„ç§ç±»å‹æ•°æ®æ•°é‡
 
-Éú³É½á¹û±íÃû³Æaidemp.NSR_info_yyyymmdd_end(crm¿â)
-Õë¶ÔAµ¥±ßÇé¿ö£º
-¼ìÑécrm¿âÖĞ´æÔÚµÄAµ¥±ß,½«ÒÀÈ»´æÔÚµÄÊı¾İÄÃµ½boss¿â£¬Éú³É½á¹ûtaxpayer_crm_d
+ç”Ÿæˆç»“æœè¡¨åç§°aidemp.NSR_info_yyyymmdd_end(crmåº“)
+é’ˆå¯¹Aå•è¾¹æƒ…å†µï¼š
+æ£€éªŒcrmåº“ä¸­å­˜åœ¨çš„Aå•è¾¹,å°†ä¾ç„¶å­˜åœ¨çš„æ•°æ®æ‹¿åˆ°bossåº“ï¼Œç”Ÿæˆç»“æœtaxpayer_crm_d
 select * from party.cm_taxpayer_info a where exists
 (select 1 from nsr_info_yyyymmdd_end where a.tax_id=tax_id and type='A')
-½«Aµ¥±ßÊı¾İ²åÈëboss¿âÖĞ
+å°†Aå•è¾¹æ•°æ®æ’å…¥bossåº“ä¸­
 insert into zg.cm_taxpayer_info select * from taxpayer_crm_d  a where not 
 exists (select 1 from zg.cm_taxpayer_info where a.tax_id=tax_id)
 
-Õë¶ÔBµ¥±ßÇé¿ö£º
-ÔÚcrmÖ´ĞĞ£¬É¾³ıÔÚcrmÖĞµÄÒÑÓĞÊı¾İ,½«Ê£Óà½á¹ûÄÃ»Øboss¿âÖĞÖ´ĞĞ,Éú³É½á¹ûtaxpayer_boss_d
+é’ˆå¯¹Bå•è¾¹æƒ…å†µï¼š
+åœ¨crmæ‰§è¡Œï¼Œåˆ é™¤åœ¨crmä¸­çš„å·²æœ‰æ•°æ®,å°†å‰©ä½™ç»“æœæ‹¿å›bossåº“ä¸­æ‰§è¡Œ,ç”Ÿæˆç»“æœtaxpayer_boss_d
 select * from nsr_info_yyyymmdd_end a where not exists 
 (select 1 from party.cm_taxpayer_info where a.tax_id=tax_id) and a.type = 'B'
-É¾³ıboss±í¶ÔÓ¦µÄµ¥±ßÊı¾İ£¬Ö´ĞĞÏÂÃæSQL
+åˆ é™¤bossè¡¨å¯¹åº”çš„å•è¾¹æ•°æ®ï¼Œæ‰§è¡Œä¸‹é¢SQL
 delete from zg.cm_taxpayer_info a where 
 exists(select 1 from taxpayer_boss_d where a.tax_id=tax_id)
 
-Õë¶ÔDµ¥±ßÇé¿ö£º
-ĞŞ¸´boss£¬crm²»Ò»ÖÂÊı¾İ£¬½«½á¹û¼¯ÄÃ»Øcrm²à²éÑ¯È«×Ö¶Î£¬Ö´ĞĞÏÂÃæsql£¬
-µÃµ½½á¹ûtaxpayer_crm_boss_d
+é’ˆå¯¹Då•è¾¹æƒ…å†µï¼š
+ä¿®å¤bossï¼Œcrmä¸ä¸€è‡´æ•°æ®ï¼Œå°†ç»“æœé›†æ‹¿å›crmä¾§æŸ¥è¯¢å…¨å­—æ®µï¼Œæ‰§è¡Œä¸‹é¢sqlï¼Œ
+å¾—åˆ°ç»“æœtaxpayer_crm_boss_d
 select a.* from party.cm_taxpayer_info a,nsr_info_yyyymmdd_end b 
 where a.tax_id=b.tax_id and b.type='D';
-ĞŞ¸Äboss²àÊı¾İ¡£½«state¸Ä³ÉcrmÒ»ÖÂ
+ä¿®æ”¹bossä¾§æ•°æ®ã€‚å°†stateæ”¹æˆcrmä¸€è‡´
 update zg.cm_taxpayer_info a 
 set 
 state=(select state from crm_boss_d where a.tax_id=tax_id ) 
 where 
 exists(select 1 from crm_boss_d where a.tax_id=tax_id and a.state <> state)
-ĞŞ¸Äboss²àÊı¾İ£¬½«tax_work¸Ä³ÉºÍcrmÒ»ÖÂ¡¢
+ä¿®æ”¹bossä¾§æ•°æ®ï¼Œå°†tax_workæ”¹æˆå’Œcrmä¸€è‡´ã€
 update zg.cm_taxpayer_info a 
 set 
 tax_work=(select tax_work from crm_boss_d where a.tax_id=tax_id ) 
