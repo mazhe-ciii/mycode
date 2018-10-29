@@ -10,8 +10,8 @@
 
 import hashlib
 
-user_number = "13910000000_NET"
-day = "20181020"
+user_number = "15910458603"
+day = "20180920"
 store_str = user_number + day
 
 store_md5 = hashlib.md5(store_str.encode("utf-8")).hexdigest()

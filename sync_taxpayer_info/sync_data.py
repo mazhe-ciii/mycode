@@ -187,15 +187,16 @@ def sync_data_crm_d():
     line_count = len(result_a)
     # 开始向BOSS账务库同步不一致数据
     # 同步A单边数据
-    zgdb_conn = cx_Oracle.connect(dbstr_boss)
+
     if line_count > 0:
+        zgdb_conn = cx_Oracle.connect(dbstr_boss)
         logger.info("开始同步A单边数据，共{}条".format(line_count))
         many_insert("taxpayer_crm_d", result_a, zgdb_conn)
         sql_dml(sync_crm_d, zgdb_conn)
         logger.info("A单边数据同步完成")
+        zgdb_conn.close()
     else:
         logger.info("本次没有需要同步的A单边数据")
-    zgdb_conn.close()
     return line_count
 
 
@@ -213,15 +214,17 @@ def sync_data_boss_d():
     crmdb_conn.close()
     # 开始向BOSS账务库同步不一致数据
     # 同步B单边数据
-    zgdb_conn = cx_Oracle.connect(dbstr_boss)
+
     if line_count > 0:
+        zgdb_conn = cx_Oracle.connect(dbstr_boss)
         logger.info("开始同步B单边数据，共{}条".format(line_count))
         many_insert("taxpayer_boss_d", result_b, zgdb_conn)
         sql_dml(sync_boss_d, zgdb_conn)
         logger.info("B单边数据同步完成")
+        zgdb_conn.close()
     else:
         logger.info("本次没有需要删除的B单边数据")
-    zgdb_conn.close()
+
     return line_count
 
 
@@ -239,13 +242,15 @@ def sync_data_crm_boss_d():
 
     # 开始向BOSS账务库同步不一致数据
     # 同步状态不一致数据
-    zgdb_conn = cx_Oracle.connect(dbstr_boss)
+
     if line_count > 0:
-        logger.info("开始同步状态不一致数据，共{}条".format(len(result_d)))
+        zgdb_conn = cx_Oracle.connect(dbstr_boss)
+        logger.info("开始同步状态不一致数据，共{}条".format(line_count))
         many_insert("taxpayer_crm_boss_d", zgdb_conn)
         sql_dml(sync_state, zgdb_conn)
         sql_dml(sync_taxwork, zgdb_conn)
         logger.info("状态不一致数据同步完成")
+        zgdb_conn.close()
     else:
         logger.info("本次没有需要同步状态不知数据")
     return line_count
