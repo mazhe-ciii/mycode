@@ -12,3 +12,4 @@ Desktop.ini
 dist
 build
 *log
+/test/
