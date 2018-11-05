@@ -71,7 +71,7 @@ class MonitorFtp:
         while True:
             try:
                 self.__ftp.connect(self.__remote_ip, self.__port, 300)
-                self.__ftp.login(self.__user, self.__passwd)
+                self.__ftp.login(self.__user, self.__password)
                 logger.info("Host {0},port: {1} login success".format(
                     self.__remote_ip, self.__port))
                 break
@@ -79,7 +79,7 @@ class MonitorFtp:
                 logger.error("Login {0}:{1} error,login in 10s later,reason:"
                              "{2}".format(self.__remote_ip, self.__port,
                                           str(errmsg)))
-                time.sleep(relogin_time)  # 10s后重试
+                time.sleep(self.relogin_time)  # 10s后重试
 
     def get_remote_file(self, *args):
         """
@@ -101,7 +101,7 @@ class MonitorFtp:
         return result
 
 
-class ShowFormatView:
+class FormatOutput:
     """
     格式化输出监控信息，入参为以目录为key，目录下文件列表为value的dict
     """
@@ -109,7 +109,7 @@ class ShowFormatView:
         self.__base_dict = base_dict
         if not isinstance(self.__base_dict, dict):
             logger.error("Args:base_dict type error,not a dict!")
-            raise "args error."
+            exit(1)
 
     def __get_check_tiem(self):
         return time.mktime(time.localtime())
