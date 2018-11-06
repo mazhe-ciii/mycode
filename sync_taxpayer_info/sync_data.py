@@ -47,7 +47,7 @@ from log import logger
 
 now = datetime.now()
 today = now.strftime("%Y%m%d")
-dbstr_boss = r"ng3upd/boss4,dml@srv_zw1"   # boss用户数据库连接串
+dbstr_boss = r"ng3upd/boss4,dml@srv_zw2"   # boss用户数据库连接串
 dbstr_crm = r"aidemp/padi_5678@yydb1"   # crm用户
 
 
@@ -56,12 +56,15 @@ def sql_dml(sql, db):
     @Function: sql_dml
     @Description: 数据增删改操作
     @param:sql 查询sql，db oracle连接
-    @return：无
+    @return：返回DML row counts
     """
     cursor = db.cursor()
     cursor.execute(sql)
+    # 获取更改条数
+    effect_num = cursor.getarraydmlrowcounts()
     db.commit()
     cursor.close()
+    return effect_num
 
 
 def many_insert(table_name, values, db):
@@ -134,8 +137,19 @@ def backup_table_taxpayer():
     """
     backup_name = "cm_taxpayer_info_" + today
     zgdb_conn = cx_Oracle.connect(dbstr_boss)
-    create_sql = ("create table {} as select * from zg.cm_taxpayer_info "
-                  "where 1 =2").format(backup_name)
+    check_sql = ("select count(1) from dba_tables where "
+                 "table_name=upper'{}' and owner='NG3UPD'".format(backup_name))
+    result = sql_select(check_sql, zgdb_conn)
+    count = int(result[0][0])
+    if count == 1:
+        # truncate table
+        drop_sql = "drop table {}".format(backup_name)
+        logger.info("Table {} is exist,drop table,exec sql : {}"
+                    .format(backup_name, drop_sql))
+        sql_dml(drop_sql, zgdb_conn)
+    # create new table
+    create_sql = ("create table {} as select * from zg.cm_taxpayer_"
+                  "info").format(backup_name)
     logger.info("Backup table zg.cm_taxpayer_info,exec sql: {}"
                 .format(create_sql))
     try:
@@ -151,25 +165,39 @@ def backup_table_taxpayer():
 # get_crm_boss_d,sync_state,sync_state 为获取BOSS侧与CRM侧数据状态不一致数据，并将
 # BOSS侧数据按照CRM状态同步sql
 get_crm_d = ("select * from party.cm_taxpayer_info a where exists"
-             "(select 1 from aidemp.NSR_info_{}_end where a.tax_id=tax_id  and"
+             "(select 1 from aidemp.nsr_info_{}_end where a.tax_id=tax_id  and"
              " type='A')").format(today)
-get_boss_d = ("select * from aidemp.NSR_info_{}_end a where not exists"
-              "(select 1 from party.cm_taxpayer_info where a.tax_id=tax_id)"
+get_boss_d = ("select * from aidemp.nsr_info_{}_end a where not exists"
+              "(select 1 from party.cm_taxpayer_info where a.tax_id=to_char(tax_id))"
               " and a.type = 'B'").format(today)
 get_crm_boss_d = ("select a.* from party.cm_taxpayer_info a,"
-                  "aidemp.NSR_info_{}_end b where a.tax_id=b.tax_id and "
+                  "aidemp.nsr_info_{}_end b where to_char(a.tax_id)=b.tax_id and "
                   "b.type='D'").format(today)
-sync_crm_d = ("insert into zg.cm_taxpayer_info select * from "
+# sync_crm_d = ("insert into zg.cm_taxpayer_info select * from "
+#               "taxpayer_crm_d a where not exists(select 1 from "
+#               "zg.cm_taxpayer_info where a.tax_id=tax_id)")
+# sync_boss_d = ("delete from zg.cm_taxpayer_info a where exists"
+#                "( select 1 from aidemp.taxpayer_boss_d where a.tax_id=tax_id )")
+# sync_state = ("update zg.cm_taxpayer_info a set state=(select state from "
+#               "taxpayer_crm_boss_d where a.tax_id=tax_id) where exists"
+#               "(select 1 from taxpayer_crm_boss_d where a.tax_id=tax_id and "
+#               "a.state <> state)")
+# sync_taxwork = ("update zg.cm_taxpayer_info a set tax_work=(select tax_work "
+#                 "from taxpayer_crm_boss_d where a.tax_id=tax_id) where exists"
+#                 "(select 1 from taxpayer_crm_boss_d where a.tax_id=tax_id and  "
+#                 "a.tax_work <> tax_work )")
+# for test
+sync_crm_d = ("insert into zg.cm_taxpayer_info_mztest select * from "
               "taxpayer_crm_d a where not exists(select 1 from "
               "zg.cm_taxpayer_info where a.tax_id=tax_id)")
-sync_boss_d = ("delete from zg.cm_taxpayer_info a where exists"
-               "( select 1 from aidemp.boss_d where a.tax_id=tax_id )")
-sync_state = ("update zg.cm_taxpayer_info a set state=(select state from "
-              "crm_boss_d where a.tax_id=tax_id) where exists(select 1 from "
-              "crm_boss_d where a.tax_id=tax_id and a.state <> state)")
-sync_taxwork = ('update zg.cm_taxpayer_info a set tax_work=(select '
-                'tax_work from crm_boss_d where a.tax_id=tax_id) where '
-                'exists(select 1 from crm_boss_d where a.tax_id=tax_id '
+sync_boss_d = ("delete from zg.cm_taxpayer_info_mztest a where exists"
+               "( select 1 from aidemp.taxpayer_boss_d where a.tax_id=tax_id )")
+sync_state = ("update zg.cm_taxpayer_info_mztest a set state=(select state from "
+              "taxpayer_crm_boss_d where a.tax_id=tax_id) where exists(select 1 from "
+              "taxpayer_crm_boss_d where a.tax_id=tax_id and a.state <> state)")
+sync_taxwork = ('update zg.cm_taxpayer_info_mztest a set tax_work=(select '
+                'tax_work from taxpayer_crm_boss_d where a.tax_id=tax_id) where '
+                'exists(select 1 from taxpayer_crm_boss_d where a.tax_id=tax_id '
                 'and  a.tax_work <> tax_work )')
 
 
@@ -259,7 +287,7 @@ def sync_data_crm_boss_d():
 def main():
     logger.info("Start sync cm_taxpayer_info")
     check_tmp_table()  # 检查临时表
-    backup_table_taxpayer()  # 备份BOSS生产表
+    # backup_table_taxpayer()  # 备份BOSS生产表
 
     crm_d_count = sync_data_crm_d()
     boss_d_count = sync_data_boss_d()
