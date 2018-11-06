@@ -2,11 +2,11 @@
 1、生产表 zg.cm_taxpayer_info 需要备份
 2、日志中显示各种类型数据数量
 
-生成结果表名称aidemp.NSR_info_yyyymmdd_end(crm库)
+生成结果表名称aidemp.nsr_info_yyyymmdd_end(crm库)
 针对A单边情况：
 检验crm库中存在的A单边,将依然存在的数据拿到boss库，生成结果taxpayer_crm_d
 select * from party.cm_taxpayer_info a where exists
-(select 1 from nsr_info_yyyymmdd_end where a.tax_id=tax_id and type='A')
+(select 1 from aidemp.nsr_info_yyyymmdd_end where a.tax_id=tax_id and type='A')
 将A单边数据插入boss库中
 insert into zg.cm_taxpayer_info select * from taxpayer_crm_d  a where not 
 exists (select 1 from zg.cm_taxpayer_info where a.tax_id=tax_id)
