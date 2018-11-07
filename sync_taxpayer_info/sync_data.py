@@ -52,6 +52,7 @@ a.tax_work <> tax_work)
 from datetime import datetime
 import cx_Oracle
 from log import logger
+import sql_list
 
 
 now = datetime.now()
@@ -120,95 +121,56 @@ def check_tmp_table():
     table_list = ["taxpayer_crm_d", "taxpayer_boss_d", "taxpayer_crm_boss_d"]
     zgdb_conn = cx_Oracle.connect(dbstr_boss)
     for table in table_list:
-        check_sql = ("select count(1) from dba_tables where "
-                     "table_name = '{}'".format(table))
+        check_sql = ("select count(1) from dba_tables where table_name = "
+                     "upper'{}' and owner = 'NG3UPD'".format(table))
         result = sql_select(check_sql, zgdb_conn)
         count = int(result[0][0])
+        logger.debug("Tmp table {} count:{}".format(table, count))
         if count == 1:
-            # truncate table
-            truncate_sql = "truncate table {}".format(table)
-            logger.info("Table {} is exist,truncate table,exec sql : {}"
+            # 删除掉临时表，防止表结构变化
+            truncate_sql = "drop table {}".format(table)
+            logger.info("删除已经存在的临时表: {},exec sql : {}"
                         .format(table, truncate_sql))
             sql_dml(truncate_sql, zgdb_conn)
-        else:
-            # create new table
-            create_sql = ("create table {} as select * from zg.cm_taxpayer_info"
-                          " where 1 = 2").format(table)
-            logger.info("Table {} is not exist,create it,exec sql:{}"
-                        .format(table, create_sql))
-            sql_dml(create_sql, zgdb_conn)
+
+        # 新建临时表
+        create_sql = ("create table {} tablespace zg_acct as select * from "
+                      "zg.cm_taxpayer_info where 1 = 2").format(table)
+        logger.info("新建临时表{},exec sql:{}".format(table, create_sql))
+        sql_dml(create_sql, zgdb_conn)
+        alter_sql = ("alter table {} add (operation varchar2(100))".format(table))
+        logger.info("增加标识字段 is_sync")
+        sql_dml(alter_sql, zgdb_conn)
     zgdb_conn.close()
 
 
-def backup_table_taxpayer():
+def backup_table_taxpayer(src_table_name):
     """
-    备份zg.cm_taxpayer_info 
+    :param src_table_name : 备份源表名称
+    :return : 无
     """
-    backup_name = "cm_taxpayer_info_" + today
+    backup_name = src_table_name + today
     zgdb_conn = cx_Oracle.connect(dbstr_boss)
     check_sql = ("select count(1) from dba_tables where "
                  "table_name=upper'{}' and owner='NG3UPD'".format(backup_name))
     result = sql_select(check_sql, zgdb_conn)
     count = int(result[0][0])
+    logger.debug("Backup table count : {}".format(count))
     if count == 1:
-        # truncate table
+        # 备份表存在，则删除
         drop_sql = "drop table {}".format(backup_name)
-        logger.info("Table {} is exist,drop table,exec sql : {}"
+        logger.info("备份表 {} 存在，删除表,exec sql : {}"
                     .format(backup_name, drop_sql))
         sql_dml(drop_sql, zgdb_conn)
     # create new table
     create_sql = ("create table {} as select * from zg.cm_taxpayer_"
                   "info").format(backup_name)
-    logger.info("Backup table zg.cm_taxpayer_info,exec sql: {}"
-                .format(create_sql))
+    logger.info("备份表 {} ,exec sql: {}".format(src_table_name, create_sql))
     try:
         sql_dml(create_sql, zgdb_conn)
     except Exception as errmsg:
         logger.error("Create table error,error massage:" + str(errmsg))
     zgdb_conn.close()
-
-
-# 定义一组获取从 aidemp.nsr_info_yyyymmdd_end 获取异常数据，并且同步异常数据sql
-# get_crm_d,sync_crm_d 为获取A单边数据，并同步A单边缺失数据至BOSS账务库sql
-# get_boss_d,sync_boss_d 为获取B单边数据，并在BOSS库删除单边数据sql
-# get_crm_boss_d,sync_state,sync_state 为获取BOSS侧与CRM侧数据状态不一致数据，并将
-# BOSS侧数据按照CRM状态同步sql
-get_crm_d = ("select * from party.cm_taxpayer_info a where exists"
-             "(select 1 from aidemp.nsr_info_{}_end where a.tax_id=tax_id  and"
-             " type='A')").format(today)
-get_boss_d = ("select * from aidemp.nsr_info_{}_end a where not exists"
-              "(select 1 from party.cm_taxpayer_info where a.tax_id=to_char(tax_id))"
-              " and a.type = 'B'").format(today)
-get_crm_boss_d = ("select a.* from party.cm_taxpayer_info a,"
-                  "aidemp.nsr_info_{}_end b where to_char(a.tax_id)=b.tax_id and "
-                  "b.type='D'").format(today)
-# sync_crm_d = ("insert into zg.cm_taxpayer_info select * from "
-#               "taxpayer_crm_d a where not exists(select 1 from "
-#               "zg.cm_taxpayer_info where a.tax_id=tax_id)")
-# sync_boss_d = ("delete from zg.cm_taxpayer_info a where exists"
-#                "( select 1 from aidemp.taxpayer_boss_d where a.tax_id=tax_id )")
-# sync_state = ("update zg.cm_taxpayer_info a set state=(select state from "
-#               "taxpayer_crm_boss_d where a.tax_id=tax_id) where exists"
-#               "(select 1 from taxpayer_crm_boss_d where a.tax_id=tax_id and "
-#               "a.state <> state)")
-# sync_taxwork = ("update zg.cm_taxpayer_info a set tax_work=(select tax_work "
-#                 "from taxpayer_crm_boss_d where a.tax_id=tax_id) where exists"
-#                 "(select 1 from taxpayer_crm_boss_d where a.tax_id=tax_id and  "
-#                 "a.tax_work <> tax_work )")
-# for test
-sync_crm_d = ("insert into zg.cm_taxpayer_info_mztest select * from "
-              "taxpayer_crm_d a where not exists(select 1 from "
-              "zg.cm_taxpayer_info where a.tax_id=tax_id)")
-sync_boss_d = ("delete from zg.cm_taxpayer_info_mztest a where exists"
-               "( select 1 from aidemp.taxpayer_boss_d where a.tax_id=tax_id )")
-sync_state = ("update zg.cm_taxpayer_info_mztest a set state=(select state "
-              "from taxpayer_crm_boss_d where a.tax_id=tax_id) where "
-              "exists(select 1 from taxpayer_crm_boss_d where a.tax_id=tax_id "
-              "and a.state <> state)")
-sync_taxwork = ("update zg.cm_taxpayer_info_mztest a set tax_work=(select "
-                "tax_work from taxpayer_crm_boss_d where a.tax_id=tax_id) "
-                "where exists(select 1 from taxpayer_crm_boss_d where "
-                "a.tax_id=tax_id and  a.tax_work <> tax_work )")
 
 
 def sync_data_crm_d():
@@ -220,7 +182,8 @@ def sync_data_crm_d():
     """
     # 获取A单边数据
     crmdb_conn = cx_Oracle.connect(dbstr_crm)
-    result_a = sql_select(get_crm_d, crmdb_conn)
+    logger.info("从CRM库获取A单边数据, exec sql : {}".format(sql_list.get_crm_d))
+    result_a = sql_select(sql_list.get_crm_d, crmdb_conn)
     crmdb_conn.close()
     line_count = len(result_a)
     # 开始向BOSS账务库同步不一致数据
@@ -228,14 +191,27 @@ def sync_data_crm_d():
 
     if line_count > 0:
         zgdb_conn = cx_Oracle.connect(dbstr_boss)
-        logger.info("开始同步A单边数据，共{}条".format(line_count))
+        logger.info("本次共获取A单边数据共{}条".format(line_count))
         many_insert("taxpayer_crm_d", result_a, zgdb_conn)
-        sql_dml(sync_crm_d, zgdb_conn)
+        logger.info("标记需要插入BOSS表的A单边数据,exec sql : {}"
+                    .format(sql_list.mark_crm_d))
+        sql_dml(sql_list.mark_crm_d, zgdb_conn)
+        # 获取标记的需要同步的数据量
+        mark_result = sql_select(sql_list.get_crm_d_count, zgdb_conn)
+        mark_count = len(mark_result)
+        if mark_count > 0:
+            logger.info("本次需要插入BOSS表的A单边数据共 {} 条,tax_id： {}"
+                        .format(mark_count, str(mark_result)))
+            sql_dml(sql_list.sync_crm_d, zgdb_conn)
+        else:
+            logger.info("本次没有需要插入BOSS表的A单边数据")
         logger.info("A单边数据同步完成")
         zgdb_conn.close()
     else:
         logger.info("本次没有需要同步的A单边数据")
-    return line_count
+        mark_count = 0
+
+    return mark_count
 
 
 def sync_data_boss_d():
@@ -247,23 +223,36 @@ def sync_data_boss_d():
     """
     # 获取B单边数据
     crmdb_conn = cx_Oracle.connect(dbstr_crm)
-    result_b = sql_select(get_boss_d, crmdb_conn)
+    logger.info("从CRM库获取B单边数据, exec sql : {}".format(sql_list.get_boss_d))
+    result_b = sql_select(sql_list.get_boss_d, crmdb_conn)
     line_count = len(result_b)
     crmdb_conn.close()
+
     # 开始向BOSS账务库同步不一致数据
     # 同步B单边数据
-
     if line_count > 0:
         zgdb_conn = cx_Oracle.connect(dbstr_boss)
-        logger.info("开始同步B单边数据，共{}条".format(line_count))
+        logger.info("本次共获取B单边数据共，共{}条".format(line_count))
         many_insert("taxpayer_boss_d", result_b, zgdb_conn)
-        sql_dml(sync_boss_d, zgdb_conn)
+        logger.info("标记需要删除BOSS表的B单边数据,exec sql : {}"
+                    .format(sql_list.mark_crm_d))
+        sql_dml(sql_list.mark_boss_d, zgdb_conn)
+        # 标记需要删除的B单边数据
+        mark_result = sql_select(sql_list.get_boss_d_count, zgdb_conn)
+        mark_count = len(mark_result)
+        if mark_count > 0:
+            logger.info("本次需要删除BOSS表的B单边数据共 {} 条,tax_id： {}"
+                        .format(mark_count, str(mark_result)))
+            sql_dml(sql_list.sync_boss_d)
+        else:
+            logger.info("本次没有需要从BOSS表删除的B单边数据")
         logger.info("B单边数据同步完成")
         zgdb_conn.close()
     else:
         logger.info("本次没有需要删除的B单边数据")
+        mark_count = 0
 
-    return line_count
+    return mark_count
 
 
 def sync_data_crm_boss_d():
@@ -275,33 +264,56 @@ def sync_data_crm_boss_d():
     :return:
     """
     crmdb_conn = cx_Oracle.connect(dbstr_crm)
-    result_d = sql_select(get_crm_boss_d, crmdb_conn)
+    logger.info("从CRM库获取状态不一致数据, exec sql : {}"
+                .format(sql_list.get_crm_boss_d))
+    result_d = sql_select(sql_list.get_crm_boss_d, crmdb_conn)
     line_count = len(result_d)
 
     # 开始向BOSS账务库同步不一致数据
     # 同步状态不一致数据
-
     if line_count > 0:
+        logger.info("本次共从获取状态不一致数据共 {} 条".format(line_count))
         zgdb_conn = cx_Oracle.connect(dbstr_boss)
-        logger.info("开始同步状态不一致数据，共{}条".format(line_count))
         many_insert("taxpayer_crm_boss_d", zgdb_conn)
-        sql_dml(sync_state, zgdb_conn)
-        sql_dml(sync_taxwork, zgdb_conn)
-        logger.info("状态不一致数据同步完成")
+        logger.info("标记需要更新的state不一致数据,exec sql : {}"
+                    .format(sql_list.mark_update_state))
+        sql_dml(sql_list.mark_update_state, zgdb_conn)
+        logger.info("标记需要更新的tax_work不一致数据,exec sql : {}"
+                    .format(sql_list.mark_update_taxwork))
+        sql_dml(sql_list.mark_update_taxwork, zgdb_conn)
+
+        mark_state_result = sql_select(sql_list.get_update_state_count,
+                                       zgdb_conn)
+        mark_state_count = len(mark_state_result)
+        mark_taxwork_result = sql_select(sql_list.get_update_taxwork_count,
+                                         zgdb_conn)
+        mark_taxwork_count = len(mark_taxwork_result)
+        if mark_state_count > 0:
+            logger.info("本次需要更新state字段的数据共 {} 条,tax_id : {}"
+                        .format(mark_state_count, str(mark_state_result)))
+            sql_dml(sql_list.sync_state, zgdb_conn)
+        elif mark_taxwork_count > 0:
+            logger.info("本次需要更新tax_work字段数据共 {} 条,tax_id : {}"
+                        .formate(mark_taxwork_count, str(mark_taxwork_result)))
+            sql_dml(sql_list.sync_taxwork, zgdb_conn)
+        else:
+            logger.info("本次没有需要同步state和tax_work字段的数据")
         zgdb_conn.close()
     else:
-        logger.info("本次没有需要同步状态不知数据")
-    return line_count
+        logger.info("本次没有需要同步状态不一致数据")
+        mark_state_count = 0
+        mark_taxwork_count = 0
+    return mark_state_count, mark_taxwork_count
 
 
 def main():
-    logger.info("Start sync cm_taxpayer_info")
+    logger.info("[数据一致性] 开始同步BOSS库cm_taxpayer_info表数据")
     check_tmp_table()  # 检查临时表
-    # backup_table_taxpayer()  # 备份BOSS生产表
+    backup_table_taxpayer("cm_taxpayer_info_mztest")  # 备份BOSS生产表
 
     crm_d_count = sync_data_crm_d()
     boss_d_count = sync_data_boss_d()
-    crm_boss_d_count = sync_data_crm_boss_d()
+    state_count, taxwork_count = sync_data_crm_boss_d()
 
-    logger.info("CRM单边： %s 条，BOSS单边： %s 条，不一致： %s 条。"
-                .format(crm_d_count, boss_d_count, crm_boss_d_count))
+    logger.info("CRM单边：{}条,BOSS单边：{}条,state不一致：{}条,taxwork不一致:{}条"
+                .format(crm_d_count, boss_d_count, state_count, taxwork_count))

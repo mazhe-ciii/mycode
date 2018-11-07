@@ -22,7 +22,7 @@ log_path = os.path.join(local_path, "log")
 if not os.path.exists(log_path):
     os.mkdir(log_path)
 # log_path = "/Users/mazhe/mycode/file_monitor/log"
-log_name = "file_monitor.{}.log".format(start_time.strftime('%Y%m%d'))
+log_name = "sync_taxpayer_ino.{}.log".format(start_time.strftime('%Y%m%d'))
 log_file = os.path.join(log_path, log_name)
 
 logger = logging.getLogger()
@@ -31,4 +31,4 @@ formatter = logging.Formatter("%(asctime)s %(processName)s pid:%(process)s "
 file_handler = logging.FileHandler(log_file)
 file_handler.setFormatter(formatter)
 logger.addHandler(file_handler)
-logger.setLevel(logging.INFO)
+logger.setLevel(logging.DEBUG)
