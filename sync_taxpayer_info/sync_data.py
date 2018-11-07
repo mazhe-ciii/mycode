@@ -71,10 +71,10 @@ def sql_dml(sql, db):
     cursor = db.cursor()
     cursor.execute(sql)
     # 获取更改条数
-    effect_num = cursor.getarraydmlrowcounts()
+    # effect_num = cursor.getarraydmlrowcounts()
     db.commit()
     cursor.close()
-    return effect_num
+    # return effect_num
 
 
 def many_insert(table_name, values, db):
@@ -122,20 +122,26 @@ def check_tmp_table():
     zgdb_conn = cx_Oracle.connect(dbstr_boss)
     for table in table_list:
         check_sql = ("select count(1) from dba_tables where table_name = "
-                     "upper'{}' and owner = 'NG3UPD'".format(table))
+                     "upper('{}') and owner = 'NG3UPD'").format(table)
         result = sql_select(check_sql, zgdb_conn)
         count = int(result[0][0])
         logger.debug("Tmp table {} count:{}".format(table, count))
         if count == 1:
             # 删除掉临时表，防止表结构变化
-            truncate_sql = "drop table {}".format(table)
+            drop_sql = "drop table {}".format(table)
             logger.info("删除已经存在的临时表: {},exec sql : {}"
-                        .format(table, truncate_sql))
-            sql_dml(truncate_sql, zgdb_conn)
+                        .format(table, drop_sql))
+            sql_dml(drop_sql, zgdb_conn)
 
         # 新建临时表
-        create_sql = ("create table {} tablespace zg_acct as select * from "
-                      "zg.cm_taxpayer_info where 1 = 2").format(table)
+        if table == "taxpayer_boss_d":
+            create_sql = ("create table {} tablespace zg_acct as select "
+                          "tax_id,state,tax_work from zg.cm_taxpayer_info "
+                          "where 1 = 2").format(table)
+        else:
+            create_sql = ("create table {} tablespace zg_acct as "
+                          "select * from zg.cm_taxpayer_info "
+                          "where 1 = 2").format(table)
         logger.info("新建临时表{},exec sql:{}".format(table, create_sql))
         sql_dml(create_sql, zgdb_conn)
         alter_sql = ("alter table {} add (operation varchar2(100))".format(table))
@@ -152,7 +158,7 @@ def backup_table_taxpayer(src_table_name):
     backup_name = src_table_name + today
     zgdb_conn = cx_Oracle.connect(dbstr_boss)
     check_sql = ("select count(1) from dba_tables where "
-                 "table_name=upper'{}' and owner='NG3UPD'".format(backup_name))
+                 "table_name=upper('{}') and owner='NG3UPD'").format(backup_name)
     result = sql_select(check_sql, zgdb_conn)
     count = int(result[0][0])
     logger.debug("Backup table count : {}".format(count))
@@ -173,6 +179,23 @@ def backup_table_taxpayer(src_table_name):
     zgdb_conn.close()
 
 
+def add_column(src_list):
+    """
+    给orcle查询的结果集list中每行记录最后追加一个空字段
+    :param src_list: 需要追加空字段的oracle结果list
+    :return:
+    """
+    result_list = []
+    length = len(src_list)
+    for i in range(length):
+        tmp_list = list(src_list[i])
+        tmp_list.append("")
+        result_list.append(tuple(tmp_list))
+        del tmp_list
+
+    return result_list
+
+
 def sync_data_crm_d():
     """
     同步A单边数据处理函数：
@@ -190,6 +213,9 @@ def sync_data_crm_d():
     # 同步A单边数据
 
     if line_count > 0:
+        # 增加result_a 中，每行数据最后增加一个空字段
+        result_a = add_column(result_a)
+        # print(result_a)
         zgdb_conn = cx_Oracle.connect(dbstr_boss)
         logger.info("本次共获取A单边数据共{}条".format(line_count))
         many_insert("taxpayer_crm_d", result_a, zgdb_conn)
@@ -231,6 +257,9 @@ def sync_data_boss_d():
     # 开始向BOSS账务库同步不一致数据
     # 同步B单边数据
     if line_count > 0:
+        # 增加result_b 中，每行数据最后增加一个空字段
+        result_b = add_column(result_b)
+        # print(result_b)
         zgdb_conn = cx_Oracle.connect(dbstr_boss)
         logger.info("本次共获取B单边数据共，共{}条".format(line_count))
         many_insert("taxpayer_boss_d", result_b, zgdb_conn)
@@ -243,7 +272,7 @@ def sync_data_boss_d():
         if mark_count > 0:
             logger.info("本次需要删除BOSS表的B单边数据共 {} 条,tax_id： {}"
                         .format(mark_count, str(mark_result)))
-            sql_dml(sql_list.sync_boss_d)
+            sql_dml(sql_list.sync_boss_d, zgdb_conn)
         else:
             logger.info("本次没有需要从BOSS表删除的B单边数据")
         logger.info("B单边数据同步完成")
@@ -272,9 +301,12 @@ def sync_data_crm_boss_d():
     # 开始向BOSS账务库同步不一致数据
     # 同步状态不一致数据
     if line_count > 0:
+        # 增加result_d 中，每行数据最后增加一个空字段
+        result_d = add_column(result_d)
+        # print(result_d)
         logger.info("本次共从获取状态不一致数据共 {} 条".format(line_count))
         zgdb_conn = cx_Oracle.connect(dbstr_boss)
-        many_insert("taxpayer_crm_boss_d", zgdb_conn)
+        many_insert("taxpayer_crm_boss_d", result_d, zgdb_conn)
         logger.info("标记需要更新的state不一致数据,exec sql : {}"
                     .format(sql_list.mark_update_state))
         sql_dml(sql_list.mark_update_state, zgdb_conn)
@@ -294,7 +326,7 @@ def sync_data_crm_boss_d():
             sql_dml(sql_list.sync_state, zgdb_conn)
         elif mark_taxwork_count > 0:
             logger.info("本次需要更新tax_work字段数据共 {} 条,tax_id : {}"
-                        .formate(mark_taxwork_count, str(mark_taxwork_result)))
+                        .format(mark_taxwork_count, str(mark_taxwork_result)))
             sql_dml(sql_list.sync_taxwork, zgdb_conn)
         else:
             logger.info("本次没有需要同步state和tax_work字段的数据")
@@ -309,7 +341,7 @@ def sync_data_crm_boss_d():
 def main():
     logger.info("[数据一致性] 开始同步BOSS库cm_taxpayer_info表数据")
     check_tmp_table()  # 检查临时表
-    backup_table_taxpayer("cm_taxpayer_info_mztest")  # 备份BOSS生产表
+    backup_table_taxpayer("cm_taxpayer_info_mz")  # 备份BOSS生产表
 
     crm_d_count = sync_data_crm_d()
     boss_d_count = sync_data_boss_d()
