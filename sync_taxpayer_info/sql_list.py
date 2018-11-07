@@ -18,14 +18,15 @@ today = now.strftime("%Y%m%d")
 # BOSS侧数据按照CRM状态同步sql
 get_crm_d = ("select * from party.cm_taxpayer_info a where exists"
              "(select 1 from aidemp.nsr_info_{}_end where a.tax_id=tax_id  and"
-             " type='A')").format(today)
+             " type='A') and a.tax_id != 88888888").format(today)
 get_boss_d = ("select to_number(a.b_tax_id),a.b_state,to_number(a.b_tax_work)"
               " from aidemp.nsr_info_{}_end a where not exists"
               "(select 1 from party.cm_taxpayer_info where a.tax_id="
-              "to_char(tax_id)) and a.type = 'B'").format(today)
+              "to_char(tax_id)) and a.type = 'B' and a.b_tax_id != '88888888'"
+              .format(today))
 get_crm_boss_d = ("select a.* from party.cm_taxpayer_info a,"
                   "aidemp.nsr_info_{}_end b where to_char(a.tax_id)=b.tax_id "
-                  "and b.type='D'").format(today)
+                  "and b.type='D' and a.tax_id != 88888888").format(today)
 
 # 更新临时表operation字段，标记操作类型
 mark_crm_d = ("update taxpayer_crm_d a set a.operation = 'insert' where not "
