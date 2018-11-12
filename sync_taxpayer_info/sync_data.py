@@ -341,7 +341,7 @@ def sync_data_crm_boss_d():
 def main():
     logger.info("[数据一致性] 开始同步BOSS库cm_taxpayer_info表数据")
     check_tmp_table()  # 检查临时表
-    backup_table_taxpayer("cm_taxpayer_info_mz")  # 备份BOSS生产表
+    backup_table_taxpayer("cm_taxpayer_info")  # 备份BOSS生产表
 
     crm_d_count = sync_data_crm_d()
     boss_d_count = sync_data_boss_d()

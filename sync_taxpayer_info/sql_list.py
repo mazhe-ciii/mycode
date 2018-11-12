@@ -82,15 +82,15 @@ table_field = ("TAX_ID,BUSI_LICENSE_NUM,NATIONAL_TAX_NUM,ENTERPRISE_NAME,"
 #                 "(select 1 from taxpayer_crm_boss_d where a.tax_id=tax_id and  "
 #                 "a.tax_work <> tax_work )")
 # for test
-sync_crm_d = ("insert into zg.cm_taxpayer_info_mz select {} from "
+sync_crm_d = ("insert into zg.cm_taxpayer_info select {} from "
               "taxpayer_crm_d a where a.operation='insert'".format(table_field))
-sync_boss_d = ("delete from zg.cm_taxpayer_info_mz a where exists"
+sync_boss_d = ("delete from zg.cm_taxpayer_info a where exists"
                "(select 1 from taxpayer_boss_d where a.tax_id=tax_id and "
                "operation='delete')")
-sync_state = ("update zg.cm_taxpayer_info_mz a set state=(select state "
+sync_state = ("update zg.cm_taxpayer_info a set state=(select state "
               "from taxpayer_crm_boss_d where a.tax_id=tax_id and "
               "operation='update state')")
-sync_taxwork = ("update zg.cm_taxpayer_info_mz a set tax_work=(select "
+sync_taxwork = ("update zg.cm_taxpayer_info a set tax_work=(select "
                 "tax_work from taxpayer_crm_boss_d where a.tax_id=tax_id and "
                 "operation='update tax_work') ")
 
