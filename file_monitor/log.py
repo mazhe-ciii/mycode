@@ -19,7 +19,7 @@ start_time = datetime.now()
 # 日志路径
 # log_path = '/hadoop/data1/aidemp/log/sync_taxpayer_info/'
 local_path = os.path.dirname(__file__)
-print(local_path)
+
 log_path = os.path.join(local_path, "log")
 if not os.path.exists(log_path):
     os.mkdir(log_path)

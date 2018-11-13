@@ -6,6 +6,11 @@
     @version: v1.0.0
     @author:  mazhe
     @created on: 2018/11/1 2:29 PM 17:29
+
+    最早时间：时间中最小值
+    新增量：本次统计量中时间大于上次统计时间的量
+    处理量：本次统计时间内的文件数中，时间小于上次统计时间的数量
+    处理速度： 处理量/轮训时间
 """
 
 
@@ -98,6 +103,7 @@ class MonitorFtp:
                 continue
             self.__ftp.dir('.', file_list.append)
             result[remote_dir] = file_list
+        self.__ftp.quit()
         return result
 
 

@@ -16,6 +16,10 @@ today = now.strftime("%Y%m%d")
 # get_boss_d,sync_boss_d 为获取B单边数据，并在BOSS库删除单边数据sql
 # get_crm_boss_d,sync_state,sync_state 为获取BOSS侧与CRM侧数据状态不一致数据，并将
 # BOSS侧数据按照CRM状态同步sql
+
+# 生产表
+dest_table="zg.cm_taxpayer_info"
+
 get_crm_d = ("select * from party.cm_taxpayer_info a where exists"
              "(select 1 from aidemp.nsr_info_{}_end where a.tax_id=tax_id  and"
              " type='A') and a.tax_id != 88888888").format(today)
@@ -30,17 +34,18 @@ get_crm_boss_d = ("select a.* from party.cm_taxpayer_info a,"
 
 # 更新临时表operation字段，标记操作类型
 mark_crm_d = ("update taxpayer_crm_d a set a.operation = 'insert' where not "
-              "exists(select 1 from zg.cm_taxpayer_info where a.tax_id=tax_id)")
+              "exists(select 1 from {} where a.tax_id=tax_id)"
+              .format(dest_table))
 mark_boss_d = ("update taxpayer_boss_d a set a.operation = 'delete' where "
-               "exists (select 1 from zg.cm_taxpayer_info where a.tax_id=tax_id)")
+               "exists (select 1 from {} where a.tax_id=tax_id)"
+               .format(dest_table))
 mark_update_state = ("update taxpayer_crm_boss_d a set a.operation = "
-                     "'update state' where exists (select 1 from "
-                     "zg.cm_taxpayer_info where a.tax_id=tax_id and "
-                     "a.state <> state)")
+                     "'update state' where exists (select 1 from {} where "
+                     "a.tax_id=tax_id and a.state <> state)".format(dest_table))
 mark_update_taxwork = ("update taxpayer_crm_boss_d a set a.operation = "
-                       "'update tax_work' where exists (select 1 from "
-                       "zg.cm_taxpayer_info where a.tax_id=tax_id and "
-                       "a.tax_work <> tax_work)")
+                       "'update tax_work' where exists (select 1 from {} where "
+                       "a.tax_id=tax_id and a.tax_work <> tax_work)"
+                       .format(dest_table))
 
 # 获取3个临时表中需要同步数据的量
 get_crm_d_count = "select tax_id from taxpayer_crm_d where operation = 'insert'"
@@ -68,31 +73,33 @@ table_field = ("TAX_ID,BUSI_LICENSE_NUM,NATIONAL_TAX_NUM,ENTERPRISE_NAME,"
                "THIRD_PARTY_NAME,EXIT_THIRD_PARTY_SEQ,EXIT_THIRD_PARTY,"
                "CONTACT_TAX_ID,PIC_ADDRESS,PIC_ADDRESS_SEQ,PIC_BANK,"
                "PIC_BANK_SEQ")
-# sync_crm_d = ("insert into zg.cm_taxpayer_info select * from "
-#               "taxpayer_crm_d a where not exists(select 1 from "
-#               "zg.cm_taxpayer_info where a.tax_id=tax_id)")
-# sync_boss_d = ("delete from zg.cm_taxpayer_info a where exists"
-#                "( select 1 from aidemp.taxpayer_boss_d where a.tax_id=tax_id )")
-# sync_state = ("update zg.cm_taxpayer_info a set state=(select state from "
-#               "taxpayer_crm_boss_d where a.tax_id=tax_id) where exists"
-#               "(select 1 from taxpayer_crm_boss_d where a.tax_id=tax_id and "
-#               "a.state <> state)")
-# sync_taxwork = ("update zg.cm_taxpayer_info a set tax_work=(select tax_work "
-#                 "from taxpayer_crm_boss_d where a.tax_id=tax_id) where exists"
-#                 "(select 1 from taxpayer_crm_boss_d where a.tax_id=tax_id and  "
-#                 "a.tax_work <> tax_work )")
-# for test
-sync_crm_d = ("insert into zg.cm_taxpayer_info select {} from "
-              "taxpayer_crm_d a where a.operation='insert'".format(table_field))
-sync_boss_d = ("delete from zg.cm_taxpayer_info a where exists"
-               "(select 1 from taxpayer_boss_d where a.tax_id=tax_id and "
-               "operation='delete')")
-sync_state = ("update zg.cm_taxpayer_info a set state=(select state "
-              "from taxpayer_crm_boss_d where a.tax_id=tax_id and "
-              "operation='update state')")
-sync_taxwork = ("update zg.cm_taxpayer_info a set tax_work=(select "
-                "tax_work from taxpayer_crm_boss_d where a.tax_id=tax_id and "
-                "operation='update tax_work') ")
 
-if __name__ == '__main__':
+# 同步临时表数据到正式表
+
+sync_crm_d = ("insert into {} select {} from taxpayer_crm_d a where "
+              "a.operation='insert'".format(dest_table, table_field))
+sync_boss_d = ("delete from {} a where exists"
+               "(select 1 from taxpayer_boss_d where a.tax_id=tax_id and "
+               "operation='delete')".format(dest_table))
+sync_state = ("update {} a set state=(select state from taxpayer_crm_boss_d "
+              "where a.tax_id=tax_id and operation='update state') where exists "
+              "(select 1 from taxpayer_crm_boss_d where a.tax_id = tax_id)"
+              .format(dest_table))
+sync_taxwork = ("update {} a set tax_work=(select tax_work from "
+                "taxpayer_crm_boss_d where a.tax_id=tax_id and "
+                "operation='update tax_work') where exists "
+                "(select 1 from taxpayer_crm_boss_d where a.tax_id = tax_id)"
+                .format(dest_table))
+
+if __name__ == "__main__":
+    print(get_crm_d)
+    print(get_boss_d)
+    print(get_crm_boss_d)
+    print(mark_crm_d)
+    print(mark_boss_d)
+    print(mark_update_state)
+    print(mark_update_taxwork)
     print(sync_crm_d)
+    print(sync_boss_d)
+    print(sync_taxwork)
+    print(sync_state)
