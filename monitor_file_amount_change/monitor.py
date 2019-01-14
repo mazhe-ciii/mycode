@@ -26,8 +26,9 @@ def get_dir_files(dir_path):
     result_list = list()
     tmp_list = os.listdir(dir_path)
     for item in tmp_list:
-        if not os.path.isdir(item):
-            file_time = os.path.getmtime(item)
+        _path = os.path.join(dir_path, item)
+        if not os.path.isdir(_path):
+            file_time = os.path.getmtime(_path)
             result_list.append(file_time)
     return result_list
 
@@ -93,11 +94,11 @@ class Monitor:
                         else:  # 小于上次统计时间，为历史量
                             his_num += 1
 
-                        deal_num = int(result_dict[path][0]) - his_num
-                        deal_speed = int(deal_num / self.interval * 60)
+                    deal_num = int(result_dict[path][0]) - his_num
+                    deal_speed = int(deal_num / self.interval * 60)
 
                 result_dict[path] = [this_num, min_time, deal_num, increase_num,
-                                     deal_speed]
+                                     deal_speed, this_time]
             # 展示
             for item in result_dict.items():
                 print(item)
@@ -114,3 +115,5 @@ def main():
     dir_list = common.get_monitor_dirs()
     print(type(dir_list))
     print(dir_list)
+    monitor = Monitor(dir_list)
+    monitor.run()

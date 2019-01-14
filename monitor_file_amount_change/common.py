@@ -116,7 +116,7 @@ __cluster = [
     {"host_name": "xbak1902", "ip": "10.4.86.101", "cluster": "JF20"},
     {"host_name": "xbak2002", "ip": "10.4.86.102", "cluster": "JF20"}
 ]
-zgdb_str = r"aiop1/ng3,aiop@srv_zw3"
+zgdb_str = r"inter/Rn4GmQ#p!Z@srv_zw3"
 
 
 def get_monitor_cluster():
@@ -146,10 +146,12 @@ def get_monitor_dirs():
     """
 
     cluster = get_monitor_cluster()
+    dirs = list()
 
     query_dir_sql = ("select monitor_dir from monitor_file_amount_change where "
-                     "cluster = '{0}'".format(cluster))
+                     "cluster_name = '{0}'".format(cluster))
     zgdb_conn = cx_Oracle.connect(zgdb_str)
-    dirs = sql_select(query_dir_sql, zgdb_conn)[0]
+    for item in sql_select(query_dir_sql, zgdb_conn):
+        dirs.append(item[0])
     zgdb_conn.close()
     return dirs
